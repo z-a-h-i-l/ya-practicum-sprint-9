@@ -29,3 +29,25 @@
 
 ![C4](./task-1/C4.png)
 
+## Задача 2
+Принудительно включаем PKCE в сервисе keycloak. В файле `realm-export.json` указываем
+```json
+"clientId": "reports-frontend",
+"enabled": true,
+"publicClient": true,
+"standardFlowEnabled": true,
+"redirectUris": ["http://localhost:3000/*"],
+"webOrigins": ["http://localhost:3000"],
+"directAccessGrantsEnabled": true,
+"attributes": {
+    "pkce.code.challenge.method": "S256"
+}
+```
+и во фронтенде изменения в файле `App.tsx`
+```js
+const initOptions: KeycloakInitOptions = {
+  onLoad: 'check-sso', 
+  pkceMethod: 'S256',
+};
+```
+
