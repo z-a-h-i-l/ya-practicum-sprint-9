@@ -88,3 +88,5 @@ const initOptions: KeycloakInitOptions = {
 ![C4](./task-1/OTP.png)
 
 ## Задача 6
+
+Добавлен Yandex OAuth
