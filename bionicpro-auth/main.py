@@ -1,8 +1,10 @@
 import os
 import logging
 from functools import wraps
+from urllib.parse import urlencode
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 from auth_service import (
@@ -13,6 +15,8 @@ from auth_service import (
     rotate_session,
     ensure_valid_access_token,
     _decode_token_payload,
+    get_authorization_url,
+    exchange_code_for_tokens,
 )
 
 load_dotenv()
@@ -24,6 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -31,6 +36,9 @@ app = Flask(__name__)
 
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8001"))
+
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8081")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 SESSION_COOKIE_NAME = "bionicpro_session"
 SESSION_MAX_AGE = int(os.getenv("SESSION_MAX_AGE_SECONDS", "600"))  # 10 minutes
@@ -78,7 +86,7 @@ def _set_session_cookie(response, session_id: str, max_age: int = None):
         session_id,
         max_age=max_age,
         httponly=True,
-        secure=True,
+        secure=False,  # False for localhost dev
         samesite="Lax",
         path="/",
     )
@@ -95,44 +103,66 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 
-@app.route("/api/auth/login", methods=["POST"])
-def login():
+@app.route("/api/auth/login", methods=["GET"])
+def login_redirect():
     """
-    Authenticate user with username/password.
-    Accepts both JSON and form-urlencoded bodies.
-    Returns a session cookie upon successful authentication.
-    No tokens are sent to the frontend.
+    Redirect the user to Keycloak's authorization endpoint (Authorization Code Flow).
+    The frontend should call this endpoint and follow the redirect.
     """
-    data = request.get_json(silent=True)
-    if not data:
-        data = request.form
+    auth_data = get_authorization_url()
+    response = redirect(auth_data["auth_url"])
+    # Store the state in a cookie so we can check it on callback
+    response.set_cookie(
+        "bionicpro_auth_state",
+        auth_data["state"],
+        max_age=600,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        path="/api/auth",
+    )
+    return response
 
-    username = data.get("username")
-    password = data.get("password")
-    if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
 
-    # Authenticate against Keycloak
-    tokens = authenticate_user(username, password)
+@app.route("/api/auth/callback", methods=["GET"])
+def login_callback():
+    """
+    Handle the callback from Keycloak after successful authentication.
+    Exchange the authorization code for tokens and create a session.
+    """
+    code = request.args.get("code")
+    state = request.args.get("state")
+    error = request.args.get("error")
+    error_description = request.args.get("error_description", "")
+
+    # Check for errors from Keycloak
+    if error:
+        logger.error("Keycloak returned error: %s - %s", error, error_description)
+        return redirect(f"{FRONTEND_URL}?error={error}")
+
+    if not code or not state:
+        return redirect(f"{FRONTEND_URL}?error=missing_params")
+
+    # Exchange code for tokens (including PKCE verification)
+    tokens = exchange_code_for_tokens(code, state)
     if tokens is None:
-        return jsonify({"error": "Invalid credentials"}), 401
+        return redirect(f"{FRONTEND_URL}?error=token_exchange_failed")
 
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
 
     if not access_token or not refresh_token:
-        return jsonify({"error": "Token response incomplete"}), 502
+        return redirect(f"{FRONTEND_URL}?error=incomplete_tokens")
 
     # Create server-side session
     session_id = create_session(access_token, refresh_token)
 
-    # Return success with session cookie (no tokens sent to frontend)
-    response = jsonify({
-        "message": "Login successful",
-        "username": username,
-    })
+    # Redirect back to frontend with session cookie
+    response = redirect(FRONTEND_URL)
     _set_session_cookie(response, session_id)
-    return response, 200
+    # Clear the auth state cookie
+    response.set_cookie("bionicpro_auth_state", "", max_age=0, path="/api/auth")
+    return response
 
 
 @app.route("/api/auth/logout", methods=["POST"])

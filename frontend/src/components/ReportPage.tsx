@@ -15,8 +15,6 @@ function ReportPage() {
   const [error, setError] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
@@ -68,44 +66,9 @@ function ReportPage() {
     }
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-
-    try {
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
-
-      const response = await fetch(`${AUTH_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setIsAuthenticated(true);
-        setPassword('');
-        // After successful login, check session to get username
-        const sessionResp = await fetch(`${AUTH_URL}/api/auth/session`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (sessionResp.ok) {
-          const sessionData = await sessionResp.json();
-          setUsername(sessionData.username || '');
-        }
-        fetchReports();
-      } else {
-        const data = await response.json();
-        setLoginError(data.error || 'Login failed');
-      }
-    } catch {
-      setLoginError('Failed to connect to authentication server');
-    }
+  const handleLogin = () => {
+    // Redirect browser directly to auth endpoint which will redirect to Keycloak
+    window.location.href = `${AUTH_URL}/api/auth/login`;
   };
 
   const handleLogout = async () => {
@@ -135,44 +98,19 @@ function ReportPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-md w-96">
           <h1 className="text-2xl font-bold mb-6 text-center">BionicPRO</h1>
-          <h2 className="text-xl mb-4 text-center text-gray-600">Sign In</h2>
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
-            {loginError && (
-              <div className="mb-4 text-red-500 text-sm text-center">{loginError}</div>
-            )}
-            <button
-              type="submit"
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none"
-            >
-              Sign In
-            </button>
-          </form>
+          <h2 className="text-xl mb-4 text-center text-gray-600">Authentication Required</h2>
+          <p className="mb-6 text-gray-600 text-center">
+            You will be redirected to Keycloak for authentication with OTP.
+          </p>
+          {error && (
+            <div className="mb-4 text-red-500 text-sm text-center">{error}</div>
+          )}
+          <button
+            onClick={handleLogin}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none"
+          >
+            Sign In with Keycloak
+          </button>
         </div>
       </div>
     );

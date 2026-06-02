@@ -137,6 +137,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["user"]
     },
     {
@@ -152,6 +153,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["user"]
     },
     {
@@ -167,6 +169,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["administrator"]
     },
     {
@@ -182,6 +185,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["prothetic_user"]
     },
     {
@@ -197,6 +201,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["prothetic_user"]
     },
     {
@@ -212,6 +217,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": [],
       "realmRoles": ["prothetic_user"]
     }
   ],
@@ -233,7 +239,13 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq",
-      "bearerOnly": true
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8081/api/auth/callback"],
+      "webOrigins": ["http://localhost:3000"]
     }
   ],
   "userFederationProviders": [

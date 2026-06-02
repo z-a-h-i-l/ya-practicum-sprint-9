@@ -3,6 +3,7 @@ import time
 import uuid
 import json
 import base64
+import hashlib
 import logging
 from typing import Optional, Dict, Any
 
@@ -18,22 +19,34 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
+KEYCLOAK_INTERNAL_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
+KEYCLOAK_EXTERNAL_URL = os.getenv("KEYCLOAK_EXTERNAL_URL", "http://localhost:8080")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "reports-realm")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "reports-api")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
-KEYCLOAK_TOKEN_URL = os.getenv(
-    "KEYCLOAK_TOKEN_URL",
-    f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token",
-)
+
+AUTH_SERVICE_EXTERNAL_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8081")
+AUTH_SERVICE_INTERNAL_URL = os.getenv("AUTH_SERVICE_INTERNAL_URL", "http://localhost:8081")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 ACCESS_TOKEN_MAX_AGE = int(os.getenv("ACCESS_TOKEN_MAX_AGE_SECONDS", "120"))
 SESSION_MAX_AGE = int(os.getenv("SESSION_MAX_AGE_SECONDS", "600"))
 
-# Well-known public keys URL for token verification
-KEYCLOAK_CERTS_URL = (
-    f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"
+# Internal Keycloak URL — for server-to-server requests (token, introspect, certs)
+KEYCLOAK_TOKEN_URL = (
+    f"{KEYCLOAK_INTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token"
 )
+KEYCLOAK_CERTS_URL = (
+    f"{KEYCLOAK_INTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"
+)
+
+# External Keycloak authorization URL — for browser redirects
+KEYCLOAK_AUTH_URL = (
+    f"{KEYCLOAK_EXTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/auth"
+)
+
+# External callback URL (browser will come back to this)
+AUTH_CALLBACK_URL = f"{AUTH_SERVICE_EXTERNAL_URL}/api/auth/callback"
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +145,7 @@ def introspect_token(access_token: str) -> Optional[dict]:
     """
     try:
         resp = requests.post(
-            f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token/introspect",
+            f"{KEYCLOAK_INTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token/introspect",
             data={
                 "client_id": KEYCLOAK_CLIENT_ID,
                 "client_secret": KEYCLOAK_CLIENT_SECRET,
@@ -150,21 +163,74 @@ def introspect_token(access_token: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
-# PKCE helper (for future use with auth code flow)
+# PKCE helpers
 # ---------------------------------------------------------------------------
 
 
-def generate_code_challenge() -> tuple:
-    """
-    Generate a code_verifier and code_challenge for PKCE.
-    Returns (code_verifier, code_challenge) as strings.
-    """
-    import hashlib
+# Store code_verifier temporarily for the auth flow (keyed by state)
+_pkce_store: Dict[str, str] = {}
+
+
+def _generate_pkce_pair() -> tuple:
+    """Generate a code_verifier and code_challenge for PKCE."""
     code_verifier = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
     code_challenge = base64.urlsafe_b64encode(
         hashlib.sha256(code_verifier.encode()).digest()
     ).rstrip(b"=").decode()
     return code_verifier, code_challenge
+
+
+def get_authorization_url() -> dict:
+    """
+    Build the Keycloak authorization URL with PKCE support.
+    Returns a dict with 'auth_url' and 'state' that the caller should store.
+    """
+    code_verifier, code_challenge = _generate_pkce_pair()
+    state = uuid.uuid4().hex
+
+    # Store code_verifier keyed by state
+    _pkce_store[state] = code_verifier
+
+    params = {
+        "response_type": "code",
+        "client_id": KEYCLOAK_CLIENT_ID,
+        "redirect_uri": AUTH_CALLBACK_URL,
+        "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "scope": "openid profile email",
+    }
+
+    auth_url = KEYCLOAK_AUTH_URL + "?" + "&".join(
+        f"{k}={requests.utils.quote(v)}" for k, v in params.items()
+    )
+
+    return {
+        "auth_url": auth_url,
+        "state": state,
+    }
+
+
+def exchange_code_for_tokens(code: str, state: str) -> Optional[dict]:
+    """
+    Exchange an authorization code (and PKCE code_verifier) for tokens.
+    Returns the token response dict, or None on failure.
+    """
+    code_verifier = _pkce_store.pop(state, None)
+    if code_verifier is None:
+        logger.error("No code_verifier found for state %s", state)
+        return None
+
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": AUTH_CALLBACK_URL,
+        "client_id": KEYCLOAK_CLIENT_ID,
+        "client_secret": KEYCLOAK_CLIENT_SECRET,
+        "code_verifier": code_verifier,
+    }
+
+    return _keycloak_token_request(payload)
 
 
 # ---------------------------------------------------------------------------
