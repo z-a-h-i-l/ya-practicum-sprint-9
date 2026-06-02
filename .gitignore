@@ -1,2 +1,4 @@
 /postgres-keycloak-data
+/ldap-data
+/ldap-config
 2024__yandex-architecture-sso.code-workspace

@@ -139,5 +139,106 @@
       "secret": "oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq",
       "bearerOnly": true
     }
-  ]
+  ],
+  "userFederationProviders": [
+    {
+      "id": "ldap-provider",
+      "displayName": "BionicPRO LDAP",
+      "providerName": "ldap",
+      "config": {
+        "priority": "0",
+        "syncRegistrations": "false",
+        "vendor": "other",
+        "usernameLDAPAttribute": "uid",
+        "userObjectClasses": "inetOrgPerson, organizationalPerson",
+        "importEnabled": "true",
+        "editMode": "READ_ONLY",
+        "authType": "simple",
+        "connectionUrl": "ldap://openldap:389",
+        "bindDn": "cn=admin,dc=example,dc=com",
+        "bindCredential": "admin",
+        "searchScope": "1",
+        "useTruststoreSpi": "ldapsOnly",
+        "usersDn": "ou=People,dc=example,dc=com",
+        "useKerberosForPasswordAuthentication": "false",
+        "pagination": "true",
+        "batchSizeForSync": "1000",
+        "fullSyncPeriod": "-1",
+        "changedSyncPeriod": "-1",
+        "uuidLDAPAttribute": "entryUUID",
+        "customUserSearchFilter": "",
+        "validatePasswordPolicy": "false",
+        "cachePolicy": "DEFAULT",
+        "trustEmail": "false",
+        "rdnLDAPAttribute": "uid"
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
+      {
+        "id": "ldap-attribute-mapper",
+        "name": "user-attributes",
+        "providerId": "user-attribute-ldap-storage-mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "user.model.attribute": "email",
+          "ldap.attribute": "mail",
+          "read.only": "true",
+          "always.read": "true",
+          "is.mandatory.in.ldap": "false"
+        }
+      },
+      {
+        "id": "ldap-firstname-mapper",
+        "name": "first-name",
+        "providerId": "user-attribute-ldap-storage-mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "user.model.attribute": "firstName",
+          "ldap.attribute": "cn",
+          "read.only": "true",
+          "always.read": "true",
+          "is.mandatory.in.ldap": "false"
+        }
+      },
+      {
+        "id": "ldap-lastname-mapper",
+        "name": "last-name",
+        "providerId": "user-attribute-ldap-storage-mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "user.model.attribute": "lastName",
+          "ldap.attribute": "sn",
+          "read.only": "true",
+          "always.read": "true",
+          "is.mandatory.in.ldap": "false"
+        }
+      },
+      {
+        "id": "ldap-role-mapper",
+        "name": "role-mapper",
+        "providerId": "role-ldap-storage-mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "roles.dn": "ou=Groups,dc=example,dc=com",
+          "role.name.ldap.attribute": "cn",
+          "role.object.classes": "groupOfNames",
+          "role.membership.ldap.attribute": "member",
+          "membership.ldap.attribute": "uid",
+          "membership.attribute.type": "DN",
+          "membership.user.ldap.attribute": "uid",
+          "role.membership.user.ldap.attribute": "uid",
+          "use.realm.roles.mapping": "true",
+          "client.id": "",
+          "roles.ldap.filter": "",
+          "mode": "READ_ONLY",
+          "user.roles.retrieve.strategy": "LOAD_GROUPS_BY_MEMBER_ATTRIBUTE",
+          "memberof.ldap.attribute": "memberOf",
+          "role.ldap.filter": "",
+          "membership.ldap.filter": ""
+        }
+      }
+    ]
+  }
 }

@@ -65,3 +65,18 @@ const initOptions: KeycloakInitOptions = {
 - **Улучшена оркестрация в Docker Compose**: добавлен healthcheck для базы данных Keycloak, настроены явные зависимости между сервисами (Keycloak ждёт здоровую БД, фронтенд ждёт `bionicpro-auth`), а также добавлены переменные окружения для URL аутентификационного сервиса.
 
 ## Задача 4
+
+Основные изменения:
+
+- **Добавлены два новых сервиса в Docker Compose**:
+  - `openldap` – LDAP-сервер, собранный из локального `Dockerfile`, с volumes для хранения данных и конфигурации, healthcheck и открытыми портами 389 (LDAP) и 636 (LDAPS).
+  - `phpldapadmin` – веб-интерфейс для управления LDAP, доступный на порту 6443. Он зависит от здорового состояния openldap.
+
+- **Расширена конфигурация Keycloak (`realm-export.json`)**:
+  - Добавлен провайдер федерации пользователей (`userFederationProviders`) для подключения к OpenLDAP: указаны URL, DN привязки, базовый DN для пользователей (`ou=People,dc=example,dc=com`) и групп (`ou=Groups,dc=example,dc=com`), режим `READ_ONLY`.
+  - Добавлены мапперы (компоненты), которые сопоставляют атрибуты LDAP с полями пользователя Keycloak: `email` → `mail`, `firstName` → `cn`, `lastName` → `sn`.
+  - Добавлен маппер ролей, который связывает LDAP-группы (например, `cn=prothetic_user`) с ролями Keycloak, работая в режиме только для чтения.
+
+- **Доработана начальная LDAP-структура (`config.ldif`)**:
+  - Добавлена корневая запись домена `dc=example,dc=com`.
+  - Исправлено имя пользователя `alex.johnson` (было просто `alex`).
