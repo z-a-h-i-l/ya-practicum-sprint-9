@@ -9,8 +9,15 @@
   "offlineSessionMaxLifespan": 2592000,
   "revokeRefreshToken": false,
   "refreshTokenMaxReuse": 0,
-  "refreshTokenReuse": 0,
   "defaultSignatureAlgorithm": "RS256",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "otpPolicyCodeReusable": false,
+  "browserFlow": "browser-otp-flow",
   "roles": {
     "realm": [
       {
@@ -27,6 +34,95 @@
       }
     ]
   },
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 0,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 1,
+      "config": {}
+    },
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 2,
+      "config": {}
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "browser-otp-flow",
+      "description": "browser based authentication with mandatory OTP",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        },
+        {
+          "authenticator": "identity-provider-redirector",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 1,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 2,
+          "userSetupAllowed": false,
+          "flowAlias": "forms-otp-flow",
+          "authenticatorConfig": null
+        }
+      ]
+    },
+    {
+      "alias": "forms-otp-flow",
+      "description": "forms-otp-flow",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        }
+      ]
+    }
+  ],
   "users": [
     {
       "username": "user1",
@@ -174,69 +270,65 @@
       }
     }
   ],
-  "components": {
+    "components": {
     "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
       {
         "id": "ldap-attribute-mapper",
         "name": "user-attributes",
-        "providerId": "user-attribute-ldap-storage-mapper",
-        "parentId": "ldap-provider",
+        "providerId": "user-attribute-ldap-mapper",
         "config": {
-          "user.model.attribute": "email",
-          "ldap.attribute": "mail",
-          "read.only": "true",
-          "always.read": "true",
-          "is.mandatory.in.ldap": "false"
+          "user.model.attribute": ["email"],
+          "ldap.attribute": ["mail"],
+          "read.only": ["true"],
+          "always.read": ["true"],
+          "is.mandatory.in.ldap": ["false"]
         }
       },
       {
         "id": "ldap-firstname-mapper",
         "name": "first-name",
-        "providerId": "user-attribute-ldap-storage-mapper",
-        "parentId": "ldap-provider",
+        "providerId": "user-attribute-ldap-mapper",
         "config": {
-          "user.model.attribute": "firstName",
-          "ldap.attribute": "cn",
-          "read.only": "true",
-          "always.read": "true",
-          "is.mandatory.in.ldap": "false"
+          "user.model.attribute": ["firstName"],
+          "ldap.attribute": ["cn"],
+          "read.only": ["true"],
+          "always.read": ["true"],
+          "is.mandatory.in.ldap": ["false"]
         }
       },
       {
         "id": "ldap-lastname-mapper",
         "name": "last-name",
-        "providerId": "user-attribute-ldap-storage-mapper",
-        "parentId": "ldap-provider",
+        "providerId": "user-attribute-ldap-mapper",
         "config": {
-          "user.model.attribute": "lastName",
-          "ldap.attribute": "sn",
-          "read.only": "true",
-          "always.read": "true",
-          "is.mandatory.in.ldap": "false"
+          "user.model.attribute": ["lastName"],
+          "ldap.attribute": ["sn"],
+          "read.only": ["true"],
+          "always.read": ["true"],
+          "is.mandatory.in.ldap": ["false"]
         }
       },
       {
         "id": "ldap-role-mapper",
         "name": "role-mapper",
-        "providerId": "role-ldap-storage-mapper",
-        "parentId": "ldap-provider",
+        "providerId": "role-ldap-mapper",
         "config": {
-          "roles.dn": "ou=Groups,dc=example,dc=com",
-          "role.name.ldap.attribute": "cn",
-          "role.object.classes": "groupOfNames",
-          "role.membership.ldap.attribute": "member",
-          "membership.ldap.attribute": "uid",
-          "membership.attribute.type": "DN",
-          "membership.user.ldap.attribute": "uid",
-          "role.membership.user.ldap.attribute": "uid",
-          "use.realm.roles.mapping": "true",
-          "client.id": "",
-          "roles.ldap.filter": "",
-          "mode": "READ_ONLY",
-          "user.roles.retrieve.strategy": "LOAD_GROUPS_BY_MEMBER_ATTRIBUTE",
-          "memberof.ldap.attribute": "memberOf",
-          "role.ldap.filter": "",
-          "membership.ldap.filter": ""
+          "roles.dn": ["ou=Groups,dc=example,dc=com"],
+          "role.name.ldap.attribute": ["cn"],
+          "role.object.classes": ["groupOfNames"],
+          "role.membership.ldap.attribute": ["member"],
+          "membership.ldap.attribute": ["uid"],
+          "membership.attribute.type": ["DN"],
+          "membership.user.ldap.attribute": ["uid"],
+          "role.membership.user.ldap.attribute": ["uid"],
+          "use.realm.roles.mapping": ["true"],
+          "client.id": [""],
+          "roles.ldap.filter": [""],
+          "mode": ["READ_ONLY"],
+          "user.roles.retrieve.strategy": ["LOAD_GROUPS_BY_MEMBER_ATTRIBUTE"],
+          "memberof.ldap.attribute": ["memberOf"],
+          "role.ldap.filter": [""],
+          "membership.ldap.filter": [""]
         }
       }
     ]

@@ -80,3 +80,11 @@ const initOptions: KeycloakInitOptions = {
 - **Доработана начальная LDAP-структура (`config.ldif`)**:
   - Добавлена корневая запись домена `dc=example,dc=com`.
   - Исправлено имя пользователя `alex.johnson` (было просто `alex`).
+
+
+## Задача 5
+Добавлен OTP
+
+![C4](./task-1/OTP.png)
+
+## Задача 6
