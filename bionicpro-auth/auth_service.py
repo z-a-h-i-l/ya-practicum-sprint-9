@@ -238,7 +238,7 @@ def exchange_code_for_tokens(code: str, state: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 
 
-def create_session(access_token: str, refresh_token: str) -> str:
+def create_session(access_token: str, refresh_token: str, id_token: str = None) -> str:
     """
     Store tokens in the server-side session store and return a session_id.
     The access_token is kept in memory; the refresh_token is stored encrypted
@@ -248,10 +248,36 @@ def create_session(access_token: str, refresh_token: str) -> str:
     _sessions[session_id] = {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "id_token": id_token,
         "created_at": time.time(),
     }
     logger.info("Created session %s", session_id)
     return session_id
+
+
+def get_keycloak_logout_url(session_id: str, post_logout_redirect_uri: str) -> str | None:
+    """
+    Build the Keycloak RP-Initiated Logout URL.
+    Uses the id_token from the session to hint Keycloak which session to end.
+    Returns None if the session does not exist.
+    """
+    from urllib.parse import urlencode
+
+    session = _sessions.get(session_id)
+    if session is None:
+        return None
+    
+    id_token = session.get("id_token")
+    params = {
+        "post_logout_redirect_uri": post_logout_redirect_uri,
+    }
+    if id_token:
+        params["id_token_hint"] = id_token
+    
+    return (
+        f"{KEYCLOAK_EXTERNAL_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/logout"
+        f"?{urlencode(params)}"
+    )
 
 
 def get_session(session_id: str) -> Optional[Dict[str, Any]]:

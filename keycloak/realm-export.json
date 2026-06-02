@@ -121,6 +121,39 @@
           "authenticatorConfig": null
         }
       ]
+    },
+    {
+      "alias": "yandex-consent-flow",
+      "description": "Yandex first broker login with consent",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-create-user-if-unique",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        },
+        {
+          "authenticator": "idp-consent",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        },
+        {
+          "authenticator": "idp-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 2,
+          "userSetupAllowed": false,
+          "authenticatorConfig": null
+        }
+      ]
     }
   ],
   "users": [
@@ -244,8 +277,83 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:8081/api/auth/callback"],
+      "redirectUris": ["http://localhost:8081/api/auth/callback", "http://localhost:3000"],
       "webOrigins": ["http://localhost:3000"]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "yandex",
+      "displayName": "Yandex ID",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": true,
+      "addReadTokenRoleOnCreate": true,
+      "authenticateByDefault": false,
+      "firstBrokerLoginFlowAlias": "yandex-consent-flow",
+      "config": {
+        "authorizationUrl": "https://oauth.yandex.ru/authorize",
+        "tokenUrl": "https://oauth.yandex.ru/token",
+        "userInfoUrl": "https://login.yandex.ru/info?format=json",
+        "clientId": "620976939a0a4672a1343704726179b2",
+        "clientSecret": "40744e2415ff45eeb3bc369e94ea9ba3",
+        "prompt": "consent",
+        "validateSignature": "false",
+        "useJwksUrl": "false"
+      }
+    }
+  ],
+  "identityProviderMappers": [
+    {
+      "id": "yandex-email-mapper",
+      "name": "yandex-email",
+      "identityProviderAlias": "yandex",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "claim": "default_email",
+        "user.attribute": "email"
+      }
+    },
+    {
+      "id": "yandex-firstname-mapper",
+      "name": "yandex-firstname",
+      "identityProviderAlias": "yandex",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "claim": "first_name",
+        "user.attribute": "firstName"
+      }
+    },
+    {
+      "id": "yandex-lastname-mapper",
+      "name": "yandex-lastname",
+      "identityProviderAlias": "yandex",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "claim": "last_name",
+        "user.attribute": "lastName"
+      }
+    },
+    {
+      "id": "yandex-username-mapper",
+      "name": "yandex-username",
+      "identityProviderAlias": "yandex",
+      "identityProviderMapper": "oidc-username-idp-mapper",
+      "config": {
+        "template": "${CLAIM.preferred_username}",
+        "syncMode": "IMPORT"
+      }
+    },
+    {
+      "id": "yandex-avatar-mapper",
+      "name": "yandex-avatar",
+      "identityProviderAlias": "yandex",
+      "identityProviderMapper": "hardcoded-attribute-idp-mapper",
+      "config": {
+        "attribute": "avatar_url",
+        "attribute.value": ""
+      }
     }
   ],
   "userFederationProviders": [
@@ -282,7 +390,7 @@
       }
     }
   ],
-    "components": {
+  "components": {
     "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
       {
         "id": "ldap-attribute-mapper",

@@ -73,10 +73,17 @@ function ReportPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${AUTH_URL}/api/auth/logout`, {
+      const response = await fetch(`${AUTH_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
+      const data = await response.json();
+      // If the backend returned a Keycloak logout URL, redirect the browser
+      // to end the Keycloak SSO session. Otherwise just reset local state.
+      if (data.logout_url) {
+        window.location.href = data.logout_url;
+        return;
+      }
     } catch {
       // ignore
     }

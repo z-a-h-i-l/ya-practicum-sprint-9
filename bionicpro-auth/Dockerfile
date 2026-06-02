@@ -33,13 +33,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY . .
 
-# Ensure proper permissions
-RUN chown -R appuser:appuser /app
+# Создаем директорию для SQLite БД и устанавливаем права
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 USER appuser
 
-# Меняем порт на 8081, чтобы он совпадал с docker-compose и nginx
 EXPOSE 8081
 
-# Запускаем gunicorn на порту 8081
-CMD ["gunicorn", "--bind", "0.0.0.0:8081", "--workers", "2", "--timeout", "120", "main:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8081", "--workers", "1", "--timeout", "120", "main:app"]
