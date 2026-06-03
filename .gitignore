@@ -2,3 +2,7 @@
 /ldap-data
 /ldap-config
 2024__yandex-architecture-sso.code-workspace
+/postgres-airflow-data
+/clickhouse-data
+.DS_Store
+*.pyc

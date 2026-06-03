@@ -95,6 +95,126 @@ services:
     depends_on:
       - keycloak
 
+  # -----------------------------------------------------------------------
+  # ClickHouse OLAP — заменяет PostgreSQL-OLAP
+  # -----------------------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    environment:
+      CLICKHOUSE_DB: olap_db
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse_password
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native TCP interface
+    volumes:
+      - ./clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user default --password clickhouse_password --query 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # -----------------------------------------------------------------------
+  # Airflow webserver (ClickHouse edition)
+  # -----------------------------------------------------------------------
+  airflow-webserver:
+    image: apache/airflow:2.9.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_password@airflow-db:5432/airflow_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__WEBSERVER__SECRET_KEY: bionicpro-airflow-secret-key
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./task-2/airflow/dags:/opt/airflow/dags
+      - ./task-2/airflow/requirements.txt:/opt/airflow/requirements.txt
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    command: >
+      bash -c "
+      pip install --no-cache-dir -r /opt/airflow/requirements.txt &&
+      airflow db migrate &&
+      airflow users create --username airflow --password airflow --firstname Admin --lastname User --role Admin --email admin@bionicpro.local 2>/dev/null || true &&
+      airflow webserver
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_password@airflow-db:5432/airflow_db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    volumes:
+      - ./task-2/airflow/dags:/opt/airflow/dags
+      - ./task-2/airflow/requirements.txt:/opt/airflow/requirements.txt
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    command: >
+      bash -c "
+      pip install --no-cache-dir -r /opt/airflow/requirements.txt &&
+      airflow db migrate &&
+      airflow scheduler
+      "
+
+  airflow-db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: airflow_db
+      POSTGRES_USER: airflow_user
+      POSTGRES_PASSWORD: airflow_password
+    volumes:
+      - ./postgres-airflow-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow_user -d airflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------------
+  # Reports API — теперь к ClickHouse
+  # -----------------------------------------------------------------------
+  reports-api:
+    build:
+      context: ./reports-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      AUTH_SERVICE_URL: http://bionicpro-auth:8081
+      FRONTEND_URL: http://localhost:3000
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_DB: olap_db
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse_password
+    depends_on:
+      - bionicpro-auth
+      - clickhouse
+
   frontend:
     build:
       context: ./frontend
@@ -109,3 +229,4 @@ services:
       REACT_APP_KEYCLOAK_CLIENT_ID: reports-frontend
     depends_on:
       - bionicpro-auth
+      - reports-api
