@@ -90,3 +90,5 @@ const initOptions: KeycloakInitOptions = {
 ## Задача 6
 
 Добавлен Yandex OAuth
+
+![C4](./task-1/yandex-oauth.png)
