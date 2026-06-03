@@ -298,9 +298,7 @@
         "userInfoUrl": "https://login.yandex.ru/info?format=json",
         "clientId": "620976939a0a4672a1343704726179b2",
         "clientSecret": "40744e2415ff45eeb3bc369e94ea9ba3",
-        "prompt": "consent",
-        "validateSignature": "false",
-        "useJwksUrl": "false"
+        "defaultScope": "login:email login:info"
       }
     }
   ],
