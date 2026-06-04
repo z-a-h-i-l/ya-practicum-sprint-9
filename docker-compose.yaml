@@ -193,7 +193,7 @@ services:
       retries: 5
 
   # -----------------------------------------------------------------------
-  # Reports API — теперь к ClickHouse
+  # Reports API — теперь к ClickHouse + S3 / CDN
   # -----------------------------------------------------------------------
   reports-api:
     build:
@@ -211,9 +211,72 @@ services:
       CLICKHOUSE_DB: olap_db
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: clickhouse_password
+      # S3 / Minio
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: reports
+      S3_REGION: us-east-1
+      # CDN base URL (external, returned to clients)
+      CDN_BASE_URL: http://localhost:8083
+      # CDN internal URL (from inside Docker network, for purge requests)
+      CDN_INTERNAL_URL: http://cdn:8083
     depends_on:
-      - bionicpro-auth
-      - clickhouse
+      bionicpro-auth:
+        condition: service_started
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # -----------------------------------------------------------------------
+  # Minio — S3-compatible object storage
+  # -----------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - ./minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------------
+  # Minio bucket initialiser — creates the 'reports' bucket on startup
+  # -----------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/reports;
+      mc anonymous set download local/reports;
+      echo 'Minio bucket reports ready';
+      exit 0;
+      "
+
+  # -----------------------------------------------------------------------
+  # CDN — Nginx reverse proxy with caching for S3 reports
+  # -----------------------------------------------------------------------
+  cdn:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    depends_on:
+      - minio
 
   frontend:
     build:

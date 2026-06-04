@@ -4,5 +4,6 @@
 2024__yandex-architecture-sso.code-workspace
 /postgres-airflow-data
 /clickhouse-data
+/minio-data
 .DS_Store
 *.pyc
