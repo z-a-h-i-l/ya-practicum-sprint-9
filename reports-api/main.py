@@ -428,7 +428,7 @@ async def get_report_direct(
         if period_start and period_end:
             query = """
                 SELECT *
-                FROM report_mart FINAL
+                FROM report_mart
                 WHERE customer_id = {customer_id:String}
                   AND report_period_start >= {period_start:DateTime}
                   AND report_period_end <= {period_end:DateTime}
@@ -443,7 +443,7 @@ async def get_report_direct(
         else:
             query = """
                 SELECT *
-                FROM report_mart FINAL
+                FROM report_mart
                 WHERE customer_id = {customer_id:String}
                 ORDER BY report_generated_at DESC
                 LIMIT 1
@@ -532,7 +532,7 @@ async def get_report(
             # Look up the latest available period for this customer
             latest_query = """
                 SELECT report_period_start, report_period_end
-                FROM report_mart FINAL
+                FROM report_mart
                 WHERE customer_id = {customer_id:String}
                 ORDER BY report_generated_at DESC
                 LIMIT 1
@@ -607,7 +607,7 @@ async def get_report(
     try:
         query = """
             SELECT *
-            FROM report_mart FINAL
+            FROM report_mart
             WHERE customer_id = {customer_id:String}
               AND report_period_start >= {period_start:DateTime}
               AND report_period_end <= {period_end:DateTime}
@@ -697,7 +697,7 @@ async def get_available_periods(request: Request):
                 report_period_start,
                 report_period_end,
                 report_generated_at
-            FROM report_mart FINAL
+            FROM report_mart
             WHERE customer_id = {customer_id:String}
             ORDER BY report_generated_at DESC
         """

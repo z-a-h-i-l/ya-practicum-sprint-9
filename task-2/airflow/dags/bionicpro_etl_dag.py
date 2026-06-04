@@ -339,7 +339,7 @@ with DAG(
     dag_id="bionicpro_etl",
     default_args=DEFAULT_ARGS,
     description="ETL pipeline: CRM + telemetry → ClickHouse OLAP → report mart",
-    schedule="0 2 * * *",  # Ежедневно в 02:00 UTC
+    schedule=None,  # Batch ETL deactivated — replaced by CDC (Debezium + Kafka → ClickHouse)
     catchup=False,
     max_active_runs=1,
     tags=["bionicpro", "etl", "reports", "clickhouse"],
