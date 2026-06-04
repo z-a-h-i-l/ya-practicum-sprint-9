@@ -1,2 +1,12 @@
 /postgres-keycloak-data
+/ldap-data
+/ldap-config
 2024__yandex-architecture-sso.code-workspace
+/postgres-airflow-data
+/clickhouse-data
+/minio-data
+/crmdb-data
+/kafka-data
+/kafka-connect-data
+.DS_Store
+*.pyc
